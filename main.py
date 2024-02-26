@@ -40,6 +40,6 @@ async def verify_webhook_mode( request: Request ):
     challenge = request.query_params.get( "hub.challenge" )
 
     if( mode == "subscribe" and token == VERIFY_TOKEN ):
-        return JSONResponse( content=challenge, status_code=200 )
+        return int( challenge )
     else:
         raise HTTPException( status_code = 403 )
