@@ -6,20 +6,14 @@ import psycopg
 import threading
 from time import sleep
 
-CONN_PARAMS = {
-    "dbname": "tiketto",
-    "user": "postgres",
-    "password": "postgres",
-    "host": "localhost",
-    "port": "5432"
-}
+DB_URL = "postgres://tiketto:1kWsULsQdTMhfof19OFRUjfDqzq2oY4Q@dpg-cnf90a5a73kc7391qfeg-a.oregon-postgres.render.com/tiketto"
 
 VERIFY_TOKEN = "HAPPY"
 
 API_VERSION = "v18.0"
 WA_BUSINESS_ID = "202130686324737"
 WA_APP_ID = "200080546530508"
-ACCESS_TOKEN = "EAAE53IcQ5pQBOxtJsTnNDpgZBguFqKAsKkCV5ZAxHzOxb8ZAdZAotv45UwkLm2Aw8Ldu2jqRkWIu36lIZCMZB5DXWr72H7sMXIEDDjMkU5Hz2X8XtiIVHL8B7cZB9MUAaQNtkdp0WtOZBSbKPoD3elf0rNrZAN1Da03JGLvCwMoZCO9u2fKLb2NaZATcW1WQMKLFMWJTDZBporaA9NPZAXDIpYQZDZD"
+ACCESS_TOKEN = "EAAE53IcQ5pQBOxZBhEdNQDB19cNA6vsZBr8zwCuAmrSbZCAOmndd8xTzbAfcA1bOZA3dZBCDjhwjZAMRtInhrgIExvuAqnKgS1LZCYwcziUZAjPFzABNZBzlss522lZCEapCw4wPlGBOMR3rsK8jhyPDwvEbXOtTWLw9lrF6aNrEcIWkZAdZBZBzaKehxlv1NJhXicmaevzBQDenwQ54P9cRljAZDZD"
 
 
 
@@ -87,19 +81,19 @@ class NotificationsHandler( threading.Thread ):
             sleep( 60 )
             print( "60 passed..." )
 
-nh = NotificationsHandler()
-nh.start()
-
 
 
 
 
 app = FastAPI()
 
+nh = NotificationsHandler()
+nh.start()
 
 
 
 
+# Cambiar por un template
 DEFAULT_MESS_TEXT = """
 ¡Hola! Soy el asistente digital de Tiketto.
 Por ahora no estoy programado para hacer demasiadas cosas...
@@ -117,7 +111,7 @@ DEFAULT_MESSAGE = lambda phone: {
 
 MOVIE_RESERVATION_CONFIRMATION = lambda phone, fields: {
     "messaging_product": "whatsapp",
-    "to": f"{ phone }",
+    "to": phone,
     "type": "template",
     "template": {
         "name": "reservation",
@@ -131,7 +125,7 @@ MOVIE_RESERVATION_CONFIRMATION = lambda phone, fields: {
                     {
                         "type": "IMAGE",
                         "image": {
-                            "link": f"{ fields[ "moviePosterUrl" ] }"
+                            "link": f"{ fields[ 'moviePosterUrl' ] }"
                         }
                     }
                 ]
@@ -141,15 +135,15 @@ MOVIE_RESERVATION_CONFIRMATION = lambda phone, fields: {
                 "parameters": [
                     {
                         "type": "TEXT",
-                        "text": f"{ fields[ "movieName" ] }"
+                        "text": f"{ fields[ 'movieName' ] }"
                     },
                     {
                         "type": "TEXT",
-                        "text": f"{ fields[ "movieDate" ] }"
+                        "text": f"{ fields[ 'movieDate' ] }"
                     },
                     {
                         "type": "TEXT",
-                        "text": f"{ fields[ "movieTime" ] }"
+                        "text": f"{ fields[ 'movieTime' ] }"
                     }
                 ]
             }
@@ -163,19 +157,19 @@ class Reservation( BaseModel ):
     fields: dict
 
 @app.post( "/reservations/confirm" )
-async def sendReservationConfirmation(
+async def sendReservConf(
     reserv: Reservation
 ):
     response = requests.post(
-        f"https://graph.facebook.com/v12.0/200080546530508/messages?access_token={ACCESS_TOKEN}",
-        json = MOVIE_RESERVATION_CONFIRMATION( reserv.phone, reserv.fields ),
+        f"https://graph.facebook.com/{API_VERSION}/{WA_APP_ID}/messages?access_token={ACCESS_TOKEN}",
+        json = MOVIE_RESERVATION_CONFIRMATION( reserv[ "phone" ], reserv[ "fields" ] ),
         headers = { "Content-Type": "application/json" }
     )
 
-    print(response.text)
-
     if( response.status_code != 200 ):
         raise HTTPException( status_code = 500 )
+
+    return
 
 
 
@@ -195,6 +189,19 @@ async def webhookVerification(
 
 
 
+
+def getMessageType( wamid ):
+    res = None
+
+    with psycopg.connect( DB_URL ) as conn:
+        with conn.cursor() as cur:
+            cur.execute( f"""
+                select sm.message_type
+                from whatsapp.sent_messages sm
+                where sm.wamid = '{ wamid }'
+            """)
+
+    return res
 
 @app.post( "/webhook" )
 async def webhookHandler( request: Request ):
@@ -233,6 +240,9 @@ async def webhookHandler( request: Request ):
 
         return
 
-    interMessId = context.get( "id" )
+    wamid = context.get( "id" )
+    messageType = getMessageType( wamid )
+
+    print( "MESS TYPE:" + str( messageType ) )
 
     return
