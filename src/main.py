@@ -312,7 +312,7 @@ def sendTicket( phone, rid ):
 
 @app.post( "/webhook" )
 async def webhookHandler( request: Request ):
-    data = request.json
+    data = request.json()
 
     print( data )
 
