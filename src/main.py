@@ -44,7 +44,7 @@ class NotificationsHandler( threading.Thread ):
         self.daemon = True
 
     def ticketsAvailable( self ):
-        with psycopg.connect( **CONN_PARAMS ) as conn:
+        with psycopg.connect( DB_URL ) as conn:
             with conn.cursor() as cur:
                 cur.execute( f"""
                     select r.reserv_id, r.phone
