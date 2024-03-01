@@ -314,6 +314,8 @@ def sendTicket( phone, rid ):
 async def webhookHandler( request: Request ):
     data = request.json
 
+    print( data )
+
     obj = data.get( "object" )
     if( obj != "whatsapp_business_account" ):
         raise HTTPException( status_code = 422 )
