@@ -355,11 +355,11 @@ async def webhookHandler( request: Request ):
         if( buttonId == "getTickets" ):
             reservs = getReservations( message[ "from" ] )
             if( len( reservs ) == 1 ):
-                reservId, eventId, movieName, movieDate = *reservs[ 0 ]
+                reservId, eventId, movieName, movieDate = reservs[ 0 ][ 0 ], reservs[ 0 ][ 1 ], reservs[ 0 ][ 2 ], reservs[ 0 ][ 4 ]
 
                 tickets = getTickets( reservId )
                 for t in tickets:
-                    ticketId, ticketNum = *t
+                    ticketId, ticketNum = t[ 0 ], t[ 1 ]
 
                     createTicket( ticketId, movieName, movieDate, ticketNum )
                     
