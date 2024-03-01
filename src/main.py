@@ -2,6 +2,13 @@ from fastapi import FastAPI, Query, Request, HTTPException
 from pydantic import BaseModel
 import requests
 
+from PIL import Image, ImageDraw, ImageFont
+import qrcode
+import json
+from datetime import datetime
+import pytz
+import requests
+
 import psycopg
 import threading
 from time import sleep
@@ -190,9 +197,17 @@ async def webhookVerification(
 
 
 
+TICKET_MESSAGE = lambda phone, rid: {
+    "messaging_product": "whatsapp",
+    "to": phone,
+    "type": "image",
+    "image": {
+        "id": rid
+    }
+}
+
 def getMessageType( wamid ):
     res = None
-
     with psycopg.connect( DB_URL ) as conn:
         with conn.cursor() as cur:
             cur.execute( f"""
@@ -202,6 +217,98 @@ def getMessageType( wamid ):
             """)
 
     return res
+
+def getReservations( phone ):
+    res = None
+    with psycopg.connect( DB_URL ) as conn:
+        with conn.cursor() as cur:
+            cur.execute( f"""
+                select r.reserv_id, me.event_id, me.movie_name, e.event_date
+                from logistics.reservation r, logistics.movie_event me, logistics.event e
+                where r.event_id = me.event_id
+                and r.event_id = e.event_id
+                and r.reserv_state = 'CONFIRMED'
+                and r.phone = '{ phone }'
+            """)
+
+            res = cur.fetchall()
+
+    return res
+
+def getTickets( reservId ):
+    res = None
+    with psycopg.connect( DB_URL ) as conn:
+        with conn.cursor() as cur:
+            cur.execute( f"""
+                select t.ticket_id, t.ticket_num
+                from logistics.reservation r, logistics.ticket t
+                where r.reserv_id = t.reserv_id
+                and r.reserv_id = { reservId }
+            """)
+
+            res = cur.fetchall()
+
+    return res
+
+def createTicket( ticketId, movieName, movieDate, ticketNum ):
+    base = Image.open( "./template.png" )
+
+    qr = qrcode.QRCode(
+        version = 1,
+        box_size = 15,
+        border = 0
+    )
+
+    qr.add_data( json.dumps({
+        "ticketId": ticketId,
+        "createdAt": datetime.now( pytz.utc ).strftime( "%Y-%m-%d %H:%M:%S" )
+    }))
+
+    qr.make( fit = True )
+
+    qrImg = qr.make_image(
+        fill_color = "#022D00",
+        back_color = "#F2FEFE"
+    )
+
+    qrImg = qrImg.resize( ( 455, 455 ) )
+
+    base.paste( qrImg, ( 68, 78 ) )
+
+    draw = ImageDraw.Draw( base )
+
+    font = ImageFont.truetype( "./Montserrat-Bold.otf", 42 )
+    
+    start = 614
+    offset = 72
+
+    draw.text( ( 60, start + 0 * offset ), movieName, font = font, fill = "#022D00" )
+    draw.text( ( 60, start + 1 * offset ), movieDate, font = font, fill = "#022D00" )
+    draw.text( ( 60, start + 2 * offset ), f"Entrada #{ ticketNum }", font = font, fill = "#022D00" )
+
+    base.save( "./ticket.png" )
+
+def uploadTicket():
+    res = None
+
+    response = requests.post(
+        f"https://graph.facebook.com/{API_VERSION}/{WA_APP_ID}/media?access_token={ACCESS_TOKEN}",
+        data = { "type": "image/png", "messaging_product": "whatsapp" },
+        files = { "file": ( "ticket.png", open( "./ticket.png", "rb" ), "image/png" ) }
+    )
+
+    if( response.status_code != 200 ):
+        print( "WARNING: ERROR IS NOT BEING HANDLED" )
+        return res
+    
+    return response.json[ "id" ]
+
+def sendTicket( phone, rid ):
+    response = requests.post(
+        f"https://graph.facebook.com/{API_VERSION}/{WA_APP_ID}/messages?access_token={ACCESS_TOKEN}",
+        json = TICKET_MESSAGE( phone, rid ),
+        headers = { "Content-Type": "application/json" }
+    )
 
 @app.post( "/webhook" )
 async def webhookHandler( request: Request ):
@@ -241,8 +348,27 @@ async def webhookHandler( request: Request ):
         return
 
     wamid = context.get( "id" )
-    messageType = getMessageType( wamid )
+    messType = getMessageType( wamid )
 
-    print( "MESS TYPE:" + str( messageType ) )
+    if( messType == "TICKETS_AVAILABLE_NOTIFICATION" ):
+        buttonId = message[ "interactive" ][ "button_reply" ][ "id" ]
+        if( buttonId == "getTickets" ):
+            reservs = getReservations( message[ "from" ] )
+            if( len( reservs ) == 1 ):
+                reservId, eventId, movieName, movieDate = *reservs[ 0 ]
+
+                tickets = getTickets( reservId )
+                for t in tickets:
+                    ticketId, ticketNum = *t
+
+                    createTicket( ticketId, movieName, movieDate, ticketNum )
+                    
+                    rid = uploadTicket()
+                    sendTicket( message[ "from" ], rid )
+
+            elif( len( reservs ) > 1 ):
+                None
+            else:
+                None
 
     return
