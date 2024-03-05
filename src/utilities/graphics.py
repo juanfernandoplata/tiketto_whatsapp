@@ -5,7 +5,7 @@ import json
 def create_movie_tickets_pdf( tickets, valid_until ):
     i = 1
     for ticket_id, movie_name, movie_date, ticket_num in tickets:
-        base = Image.open( "./template1.png" )
+        base = Image.open( "./utilities/resources/graphics/template.png" )
 
         qr = qrcode.QRCode(
             version = 1,
@@ -31,7 +31,7 @@ def create_movie_tickets_pdf( tickets, valid_until ):
 
         draw = ImageDraw.Draw( base )
 
-        font = ImageFont.truetype( "./Montserrat-Bold.otf", 42 )
+        font = ImageFont.truetype( "./utilities/resources/graphics/Montserrat-Bold.otf", 42 )
         
         start = 724
         offset = 72
@@ -40,17 +40,17 @@ def create_movie_tickets_pdf( tickets, valid_until ):
         draw.text( ( 60, start + 1 * offset ), movie_date, font = font, fill = "#000000" )
         draw.text( ( 60, start + 2 * offset ), f"Entrada #{ ticket_num }", font = font, fill = "#000000" )
 
-        base.save( f"./ticket{i}.png" )
+        base.save( f"./resources/graphics/ticket{i}.png" )
 
         i += 1
     
     images = [
-        Image.open( f"./ticket{i}.png" )
+        Image.open( f"./resources/graphics/ticket{i}.png" )
         for i in range( 1, len( tickets ) + 1 )
     ]
 
     images[ 0 ].convert( "RGB" ).save(
-        "./tickets.pdf",
+        "./resources/graphics/tickets.pdf",
         resolution = 100.0,
         append_images = images[ 1: ],
         save_all = True

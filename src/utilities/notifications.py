@@ -46,7 +46,7 @@ class MovieNotificationsHandler( threading.Thread ):
                             "act_span": "3"
                         }
                     )
-
+                    
                     if( response.status_code == 200 ):
                         wamid = response.json()[ "messages" ][ 0 ][ "id" ]
                         
