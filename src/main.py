@@ -145,7 +145,12 @@ async def webhook_handler( request: Request ):
 
     context = message.get( "context" )
     if( not context ):
-        response = wa.send_default_message( message[ "phone" ] )
+        response = wa.send_default_message( message[ "from" ] )
+
+        if( response.status_code != 200 ):
+            raise HTTPException( status_code = 500 )
+
+        return
 
     wamid = context.get( "id" )
 
