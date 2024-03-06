@@ -6,4 +6,5 @@ psycopg[binary,pool]
 python-jose[cryptography]
 datetime
 pytz
+qrcode
 pillow
