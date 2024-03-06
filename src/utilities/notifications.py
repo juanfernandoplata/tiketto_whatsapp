@@ -6,7 +6,8 @@ from time import sleep
 import psycopg
 from utilities import wa
 
-load_dotenv( "./config/.env" )
+load_dotenv( "./.env" )
+
 CONN_URL = os.environ.get( "CONN_URL" )
 
 class MovieNotificationsHandler( threading.Thread ):

@@ -3,7 +3,8 @@ import os
 
 import requests
 
-load_dotenv( "./config/.env" )
+load_dotenv( "./.env" )
+
 WA_API_VERSION = os.environ.get( "WA_API_VERSION" )
 WA_NUM_ID = os.environ.get( "WA_NUM_ID" )
 WA_ACCESS_TOKEN = os.environ.get( "WA_ACCESS_TOKEN" )

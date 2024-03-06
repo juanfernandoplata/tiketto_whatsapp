@@ -23,7 +23,7 @@ import pytz
 from utilities.notifications import MovieNotificationsHandler
 from utilities import wa, graphics
 
-load_dotenv( "./config/.env" )
+load_dotenv( "./.env" )
 
 CONN_URL = os.environ.get( "CONN_URL" )
 
