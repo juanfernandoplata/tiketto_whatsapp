@@ -7,9 +7,15 @@
 from dotenv import load_dotenv
 import os
 
-from fastapi import FastAPI, Query, Request, HTTPException
+from fastapi import FastAPI, Depends, Query, Request, HTTPException
+
 from pydantic import BaseModel
+from typing import Annotated, List
+from enum import Enum
+
 import psycopg
+
+from jose import JWTError, jwt
 
 from datetime import datetime, timedelta
 import pytz
@@ -18,26 +24,56 @@ from utilities.notifications import MovieNotificationsHandler
 from utilities import wa, graphics
 
 load_dotenv( "./config/.env" )
+
+CONN_URL = os.environ.get( "CONN_URL" )
+
 WA_VERIFY_TOKEN = os.environ.get( "WA_VERIFY_TOKEN" )
 WA_ACCOUNT_ID = os.environ.get( "WA_ACCOUNT_ID" )
-CONN_URL = os.environ.get( "CONN_URL" )
+
+SECRET_KEY = os.environ.get( "SECRET_KEY" )
+ALGORITHM = "HS256"
+
+
 
 MovieNotificationsHandler().start()
 app = FastAPI()
 
 
 
-class Reservation( BaseModel ):
-    event_type: str
-    phone: str
-    fields: dict
+class BusinessUser( BaseModel ):
+    user_id: int
+    user_type: str
+    comp_id: int
+    user_role: str
 
-@app.post( "/reservations/confirmations" )
+def decode_token( access_token: str ) -> BusinessUser:
+    try:
+        return BusinessUser( **jwt.decode( access_token, SECRET_KEY, algorithms = [ ALGORITHM ] ) )
+    
+    except JWTError:
+        raise HTTPException(
+            status_code = 401,
+            detail = "Invalid access token"
+        )
+
+
+
+class EventStateEnum( str, Enum ):
+    pending_confirm = "PENDING_CONFIRM"
+    never_confirmed = "NEVER_CONFIRMED"
+    confirmed = "CONFIRMED"
+    canceled = "CANCELED"
+
+@app.post( "/reservations/confirm" )
 async def send_reservation_confirmation(
-    reserv: Reservation
+    event_type: Enum,
+    phone: str,
+    fields: dict,
+
+    user: Annotated[ BusinessUser, Depends( decode_token ) ]
 ):
-    if( reserv.event_type == "MOVIE" ):
-        response = wa.send_movie_reservation_confirmation( reserv.phone, reserv.fields )
+    if( event_type == "MOVIE" ):
+        response = wa.send_movie_reservation_confirmation( phone, fields )
         
         if( response.status_code != 200 ):
             raise HTTPException( status_code = 500 )
