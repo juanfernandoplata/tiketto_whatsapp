@@ -11,7 +11,6 @@ from fastapi import FastAPI, Depends, Query, Request, HTTPException
 
 from pydantic import BaseModel
 from typing import Annotated, List
-from enum import Enum
 
 import psycopg
 
@@ -58,15 +57,9 @@ def decode_token( access_token: str ) -> BusinessUser:
 
 
 
-class EventStateEnum( str, Enum ):
-    pending_confirm = "PENDING_CONFIRM"
-    never_confirmed = "NEVER_CONFIRMED"
-    confirmed = "CONFIRMED"
-    canceled = "CANCELED"
-
 @app.post( "/reservations/confirm" )
 async def send_reservation_confirmation(
-    event_type: Enum,
+    event_type: str,
     phone: str,
     fields: dict,
 
