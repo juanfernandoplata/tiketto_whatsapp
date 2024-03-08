@@ -8,6 +8,7 @@ from dotenv import load_dotenv
 import os
 
 from fastapi import FastAPI, Depends, Query, Request, HTTPException
+from fastapi.middleware.cors import CORSMiddleware
 
 from pydantic import BaseModel
 from typing import Annotated, List
@@ -35,8 +36,15 @@ ALGORITHM = "HS256"
 
 
 MovieNotificationsHandler().start()
+
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins = [ "*" ],
+    allow_methods = [ "*" ],
+    allow_headers = [ "*" ]
+)
 
 
 class BusinessUser( BaseModel ):
@@ -67,6 +75,8 @@ async def send_reservation_confirmation(
 ):
     if( event_type == "MOVIE" ):
         response = wa.send_movie_reservation_confirmation( phone, fields )
+
+        print( response.text )
         
         if( response.status_code != 200 ):
             raise HTTPException( status_code = 500 )
